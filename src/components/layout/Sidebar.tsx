@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, TrendingUp, PieChart, MessageSquare, BookOpen, Settings, BarChart2, UserPlus, ShoppingBag } from "lucide-react";
+import { Home, Users, TrendingUp, PieChart, MessageSquare, BookOpen, Settings, BarChart2, UserPlus, ShoppingBag, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -51,6 +51,11 @@ export default function Sidebar() {
     { icon: <BookOpen className="h-5 w-5" />, label: "Education", to: "/education" },
   ];
 
+  const accountItems = [
+    { icon: <Shield className="h-5 w-5" />, label: "Role Management", to: "/roles" },
+    { icon: <Settings className="h-5 w-5" />, label: "Settings", to: "/settings" },
+  ];
+
   return (
     <div className="w-[240px] border-r h-[calc(100vh-4rem)] hidden md:flex flex-col bg-card p-3 sticky top-16">
       {/* User Profile */}
@@ -99,13 +104,19 @@ export default function Sidebar() {
 
       <Separator className="my-3" />
       
-      {/* Settings */}
-      <SidebarItem
-        icon={<Settings className="h-5 w-5" />}
-        label="Settings"
-        to="/settings"
-        active={pathname === "/settings"}
-      />
+      {/* Account Section */}
+      <p className="px-2 text-xs font-medium text-muted-foreground mb-1">ACCOUNT</p>
+      <div className="space-y-1">
+        {accountItems.map((item) => (
+          <SidebarItem
+            key={item.to}
+            icon={item.icon}
+            label={item.label}
+            to={item.to}
+            active={pathname === item.to}
+          />
+        ))}
+      </div>
     </div>
   );
 }
