@@ -46,8 +46,8 @@ const FeaturedServices: React.FC<FeaturedServicesProps> = ({ services }) => {
                     <div className="font-bold">
                       {service.isSubscription ? `$${service.price}/${service.subscriptionPeriod?.slice(0, 2) || 'mo'}` : `$${service.price}`}
                     </div>
-                    <Button size="sm" as={Link} to={`/marketplace/${service.id}`}>
-                      View Details
+                    <Button size="sm" asChild>
+                      <Link to={`/marketplace/${service.id}`}>View Details</Link>
                     </Button>
                   </div>
                 </CardContent>

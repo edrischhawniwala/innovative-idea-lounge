@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -190,9 +191,9 @@ const GroupCard: React.FC<GroupCardProps> = ({ group }) => {
         <p className="line-clamp-2 text-sm text-gray-600">{group.description}</p>
       </CardContent>
       <CardFooter className="flex justify-between items-center">
-        <Link to={`/groups/${group.id}`}>
-          <Button variant="outline" size="sm">View Group</Button>
-        </Link>
+        <Button variant="outline" size="sm" asChild>
+          <Link to={`/groups/${group.id}`}>View Group</Link>
+        </Button>
         {group.isSubscription && (
           <div className="text-sm font-medium text-green-600">${group.price}/month</div>
         )}

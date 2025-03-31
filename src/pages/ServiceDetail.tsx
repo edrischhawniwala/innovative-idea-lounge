@@ -111,11 +111,11 @@ const ServiceDetail: React.FC = () => {
           <div className="flex-1 p-4 container max-w-screen-xl mx-auto">
             <div className="text-center py-12">
               <p className="text-xl">Service not found</p>
-              <Link to="/marketplace">
-                <Button variant="outline" className="mt-4">
+              <Button variant="outline" className="mt-4" asChild>
+                <Link to="/marketplace">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Marketplace
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -167,9 +167,11 @@ const ServiceDetail: React.FC = () => {
       <div className="flex">
         <Sidebar />
         <div className="flex-1 p-4 container max-w-screen-xl mx-auto">
-          <Link to="/marketplace" className="flex items-center mb-4 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Marketplace
-          </Link>
+          <Button variant="ghost" className="mb-4 text-muted-foreground hover:text-foreground" asChild>
+            <Link to="/marketplace">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Marketplace
+            </Link>
+          </Button>
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">

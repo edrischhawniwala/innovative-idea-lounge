@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Service, ServiceCategory, ServiceFilter, ServiceType } from '@/types';
 import { Input } from '@/components/ui/input';
@@ -215,7 +215,9 @@ const Marketplace: React.FC = () => {
           <div className="container mx-auto py-6 max-w-6xl">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-3xl font-bold">Marketplace</h1>
-              <Button as="a" href="/marketplace/list-service">List Your Service</Button>
+              <Button asChild>
+                <Link to="/marketplace/list-service">List Your Service</Link>
+              </Button>
             </div>
             
             {featuredServices.length > 0 && (

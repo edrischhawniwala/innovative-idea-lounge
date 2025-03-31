@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Service } from '@/types';
+import { Service, ServiceCategory, ServiceType } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -88,8 +88,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
             {formatPrice(service.price, service.type, service.isSubscription)}
           </span>
         </div>
-        <Button as={Link} to={`/marketplace/${service.id}`} size="sm">
-          View Details
+        <Button size="sm" asChild>
+          <Link to={`/marketplace/${service.id}`}>View Details</Link>
         </Button>
       </CardFooter>
     </Card>
