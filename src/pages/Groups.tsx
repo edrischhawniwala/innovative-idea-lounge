@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Lock, Globe, Crown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Navbar from "@/components/layout/Navbar";
+import Sidebar from "@/components/layout/Sidebar";
 
 // Mock data for demonstration
 const mockGroups: Group[] = [
@@ -86,66 +87,74 @@ const Groups: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-6xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Groups</h1>
-        <Button onClick={handleCreateGroup}>Create Group</Button>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="flex">
+        <Sidebar />
+        <div className="flex-1 p-4 container max-w-screen-xl mx-auto">
+          <div className="container mx-auto py-6 max-w-6xl">
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-3xl font-bold">Groups</h1>
+              <Button onClick={handleCreateGroup}>Create Group</Button>
+            </div>
+            
+            <div className="mb-6">
+              <Input 
+                placeholder="Search groups..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-md"
+              />
+            </div>
+            
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="all">All Groups</TabsTrigger>
+                <TabsTrigger value="member">User Groups</TabsTrigger>
+                <TabsTrigger value="provider">Provider Groups</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="all">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {isLoading ? (
+                    <p>Loading groups...</p>
+                  ) : filteredGroups.length > 0 ? (
+                    filteredGroups.map(group => (
+                      <GroupCard key={group.id} group={group} />
+                    ))
+                  ) : (
+                    <p>No groups found matching your search.</p>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="member">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {memberGroups.length > 0 ? (
+                    memberGroups.map(group => (
+                      <GroupCard key={group.id} group={group} />
+                    ))
+                  ) : (
+                    <p>No user groups found matching your search.</p>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="provider">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {providerGroups.length > 0 ? (
+                    providerGroups.map(group => (
+                      <GroupCard key={group.id} group={group} />
+                    ))
+                  ) : (
+                    <p>No provider groups found matching your search.</p>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
-      
-      <div className="mb-6">
-        <Input 
-          placeholder="Search groups..." 
-          value={searchTerm} 
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-md"
-        />
-      </div>
-      
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All Groups</TabsTrigger>
-          <TabsTrigger value="member">User Groups</TabsTrigger>
-          <TabsTrigger value="provider">Provider Groups</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="all">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {isLoading ? (
-              <p>Loading groups...</p>
-            ) : filteredGroups.length > 0 ? (
-              filteredGroups.map(group => (
-                <GroupCard key={group.id} group={group} />
-              ))
-            ) : (
-              <p>No groups found matching your search.</p>
-            )}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="member">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {memberGroups.length > 0 ? (
-              memberGroups.map(group => (
-                <GroupCard key={group.id} group={group} />
-              ))
-            ) : (
-              <p>No user groups found matching your search.</p>
-            )}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="provider">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {providerGroups.length > 0 ? (
-              providerGroups.map(group => (
-                <GroupCard key={group.id} group={group} />
-              ))
-            ) : (
-              <p>No provider groups found matching your search.</p>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 };
