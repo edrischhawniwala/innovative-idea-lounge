@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Task, TaskCategory, TaskPriority } from '@/types';
 import { useTaskContext } from '@/context/TaskContext';
@@ -36,7 +35,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
     completed: z.boolean().default(false)
   });
 
-  const form = useForm<z.infer<typeof taskSchema>>({
+  type TaskFormValues = z.infer<typeof taskSchema>;
+
+  const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
       title: '',
@@ -70,11 +71,19 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, editingTask }) => 
     }
   }, [editingTask, form, isOpen]);
 
-  const onSubmit = (data: z.infer<typeof taskSchema>) => {
+  const onSubmit = (data: TaskFormValues) => {
     if (editingTask) {
       updateTask(editingTask.id, data);
     } else {
-      addTask(data);
+      const newTask = {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        priority: data.priority,
+        completed: data.completed,
+        dueDate: data.dueDate
+      };
+      addTask(newTask);
     }
     onClose();
   };
