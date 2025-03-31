@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -106,5 +105,46 @@ export interface TaskFilter {
   category?: TaskCategory;
   priority?: TaskPriority;
   completed?: boolean;
+  searchTerm?: string;
+}
+
+// Marketplace Types
+export interface Service {
+  id: string;
+  providerId: string;
+  provider?: User;
+  title: string;
+  description: string;
+  category: ServiceCategory;
+  type: ServiceType;
+  price: number;
+  isSubscription: boolean;
+  subscriptionPeriod?: 'monthly' | 'quarterly' | 'yearly';
+  rating: number;
+  reviewCount: number;
+  coverImage: string;
+  createdAt: string;
+  featured?: boolean;
+}
+
+export type ServiceCategory = 'signals' | 'analysis' | 'education' | 'mentoring' | 'freelance' | 'other';
+export type ServiceType = 'one-time' | 'subscription' | 'hourly';
+
+export interface ServiceReview {
+  id: string;
+  serviceId: string;
+  userId: string;
+  user?: User;
+  rating: number;
+  content: string;
+  createdAt: string;
+}
+
+export interface ServiceFilter {
+  category?: ServiceCategory;
+  type?: ServiceType;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
   searchTerm?: string;
 }

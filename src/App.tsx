@@ -17,6 +17,8 @@ import Education from "./pages/Education";
 import Settings from "./pages/Settings";
 import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
+import Marketplace from "./pages/Marketplace";
+import ServiceDetail from "./pages/ServiceDetail";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,8 @@ const App = () => (
           <Route path="/settings" element={<Settings />} />
           <Route path="/groups" element={<Groups />} />
           <Route path="/groups/:groupId" element={<GroupDetail />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace/:serviceId" element={<ServiceDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
