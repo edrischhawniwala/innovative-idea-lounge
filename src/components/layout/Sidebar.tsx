@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, TrendingUp, PieChart, MessageSquare, BookOpen, Settings, BarChart2, UserPlus } from "lucide-react";
+import { Home, Users, TrendingUp, PieChart, MessageSquare, BookOpen, Settings, BarChart2, UserPlus, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -41,6 +41,7 @@ export default function Sidebar() {
     { icon: <Users className="h-5 w-5" />, label: "Friends", to: "/friends" },
     { icon: <UserPlus className="h-5 w-5" />, label: "Groups", to: "/groups" },
     { icon: <MessageSquare className="h-5 w-5" />, label: "Messages", to: "/messages" },
+    { icon: <ShoppingBag className="h-5 w-5" />, label: "Marketplace", to: "/marketplace" },
     { icon: <TrendingUp className="h-5 w-5" />, label: "Markets", to: "/markets" },
   ];
 
