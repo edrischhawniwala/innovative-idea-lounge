@@ -35,6 +35,10 @@ export default function Post({ post }: PostProps) {
 
   const comments = getEnrichedComments(post.id);
   const formattedDate = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
+  
+  // Determine media type
+  const hasVideo = post.videos && post.videos.length > 0;
+  const hasImage = post.images && post.images.length > 0;
 
   return (
     <Card className="w-full mb-4 overflow-hidden">
@@ -76,8 +80,20 @@ export default function Post({ post }: PostProps) {
           )}
         </div>
 
-        {/* Post Images */}
-        {post.images && post.images.length > 0 && (
+        {/* Post Video */}
+        {hasVideo && (
+          <div className="mt-3 rounded-md overflow-hidden border">
+            <video
+              src={post.videos[0]}
+              className="w-full"
+              controls
+              preload="metadata"
+            />
+          </div>
+        )}
+
+        {/* Post Images (only if no video) */}
+        {!hasVideo && hasImage && (
           <div className="mt-3 rounded-md overflow-hidden border">
             <img 
               src={post.images[0]} 
