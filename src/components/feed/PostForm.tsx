@@ -7,36 +7,102 @@ import { Card } from "@/components/ui/card";
 import Avatar from "../common/Avatar";
 import { currentUser } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
-export default function PostForm() {
+interface PostFormProps {
+  onPostCreated?: () => void;
+  profileWall?: boolean;
+}
+
+export default function PostForm({ onPostCreated, profileWall }: PostFormProps) {
   const [postText, setPostText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
+  const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!postText.trim() && !mediaPreview) return;
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to post",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Prepare the post data
+      const postData = {
+        user_id: user.id,
+        content: postText.trim(),
+        images: mediaType === "image" && uploadedMediaUrl ? [uploadedMediaUrl] : null,
+        videos: mediaType === "video" && uploadedMediaUrl ? [uploadedMediaUrl] : null,
+        tags: extractHashtags(postText)
+      };
+      
+      // Create the post using edge function
+      const { data: newPost, error } = await supabase.functions
+        .invoke('create_post', {
+          body: postData
+        });
+        
+      if (error) throw new Error(error.message);
+      
+      // Reset form
       setPostText("");
       setMediaPreview(null);
       setMediaType(null);
-      setIsSubmitting(false);
+      setUploadedMediaUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (videoInputRef.current) videoInputRef.current.value = "";
+      
+      // Invalidate cache to refetch posts
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      
+      // Notify parent component if callback exists
+      if (onPostCreated) {
+        onPostCreated();
+      }
+      
       toast({
         title: "Success",
         description: "Your post has been published.",
       });
-    }, 1000);
+    } catch (error) {
+      console.error("Error creating post:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to publish post",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "video") => {
+  // Extract hashtags from post content
+  const extractHashtags = (text: string): string[] => {
+    const hashtagRegex = /#(\w+)/g;
+    const matches = text.match(hashtagRegex);
+    
+    if (!matches) return [];
+    
+    return matches.map(tag => tag.substring(1)); // Remove the # prefix
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "video") => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -50,15 +116,30 @@ export default function PostForm() {
       return;
     }
 
-    // Create preview URL
+    // Create local preview URL
     const url = URL.createObjectURL(file);
     setMediaPreview(url);
     setMediaType(type);
+    
+    // In a real implementation, we would upload the file to storage
+    // For now, we'll just use the local URL as a placeholder
+    setUploadedMediaUrl(url);
+    
+    // In a real implementation with Supabase Storage:
+    // const { data, error } = await supabase.storage
+    //  .from('media')
+    //  .upload(`${user.id}/${Date.now()}-${file.name}`, file);
+    // if (error) {
+    //   toast({ title: "Error", description: "Failed to upload media", variant: "destructive" });
+    //   return;
+    // }
+    // setUploadedMediaUrl(data.path);
   };
 
   const handleRemoveMedia = () => {
     setMediaPreview(null);
     setMediaType(null);
+    setUploadedMediaUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (videoInputRef.current) videoInputRef.current.value = "";
   };
@@ -72,13 +153,16 @@ export default function PostForm() {
   };
 
   return (
-    <Card className="p-4 mb-4">
+    <Card className={`p-4 mb-4 ${profileWall ? 'mt-6' : ''}`}>
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3">
-          <Avatar user={currentUser} size="md" />
+          <Avatar user={user || currentUser} size="md" />
           <div className="flex-1">
             <Textarea
-              placeholder="Share your trading insights..."
+              placeholder={profileWall 
+                ? `Share your thoughts on ${user?.name || 'your'} wall...` 
+                : "Share your trading insights..."
+              }
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
               className="min-h-[80px] border-0 focus-visible:ring-0 resize-none p-0 shadow-none"

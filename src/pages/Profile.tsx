@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import PostsList from "@/components/feed/PostsList";
+import PostForm from "@/components/feed/PostForm";
 import { format } from "date-fns";
 import { User, Post } from "@/types";
 import { useAuth } from "@/context/AuthContext";
@@ -55,114 +56,115 @@ export default function Profile() {
   const profileId = userId || currentUser?.id;
   const isOwnProfile = currentUser?.id === profileId;
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
+  // Fetch profile data and posts
+  const fetchProfileData = async () => {
+    setLoading(true);
+    try {
+      if (!profileId) return;
+      
+      // Fetch profile data
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', profileId)
+        .single();
+      
+      if (profileError) throw profileError;
+      
+      // Fetch posts by this user using Edge Function
       try {
-        if (!profileId) return;
-        
-        // Fetch profile data
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', profileId)
-          .single();
-        
-        if (profileError) throw profileError;
-        
-        // Fetch posts by this user using Edge Function
-        try {
-          const { data: userPosts, error: postsError } = await supabase.functions
-            .invoke('get_posts_with_user', {
-              body: { user_id_param: profileId }
-            });
-            
-          if (postsError) throw postsError;
+        const { data: userPosts, error: postsError } = await supabase.functions
+          .invoke('get_posts_with_user', {
+            body: { user_id_param: profileId }
+          });
           
-          if (userPosts && Array.isArray(userPosts)) {
-            // Format posts to match our Post type
-            const formattedPosts = userPosts.map((post: PostWithProfile) => ({
-              id: post.id,
-              userId: post.user_id,
-              user: {
-                id: post.profile_id,
-                name: post.username,
-                username: post.username,
-                avatar: post.avatar,
-                role: post.role as "member" | "service_user" | "service_provider" | "admin",
-                joinDate: format(new Date(post.created_at), "yyyy-MM-dd")
-              },
-              content: post.content,
-              images: post.images || [],
-              videos: post.videos || [],
-              createdAt: post.created_at,
-              likes: post.likes_count,
-              comments: post.comments_count,
-              tags: post.tags || []
-            }));
-            
-            setPosts(formattedPosts);
-          }
-        } catch (edgeFunctionError) {
-          console.error("Error fetching posts:", edgeFunctionError);
-          toast.error("Failed to load posts");
-        }
+        if (postsError) throw postsError;
         
-        // Get followers count
+        if (userPosts && Array.isArray(userPosts)) {
+          // Format posts to match our Post type
+          const formattedPosts = userPosts.map((post: PostWithProfile) => ({
+            id: post.id,
+            userId: post.user_id,
+            user: {
+              id: post.profile_id,
+              name: post.username,
+              username: post.username,
+              avatar: post.avatar,
+              role: post.role as "member" | "service_user" | "service_provider" | "admin",
+              joinDate: format(new Date(post.created_at), "yyyy-MM-dd")
+            },
+            content: post.content,
+            images: post.images || [],
+            videos: post.videos || [],
+            createdAt: post.created_at,
+            likes: post.likes_count,
+            comments: post.comments_count,
+            tags: post.tags || []
+          }));
+          
+          setPosts(formattedPosts);
+        }
+      } catch (edgeFunctionError) {
+        console.error("Error fetching posts:", edgeFunctionError);
+        toast.error("Failed to load posts");
+      }
+      
+      // Get followers count
+      try {
+        const { count: followers, error: followersError } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', profileId);
+          
+        if (followersError) throw followersError;
+        
+        setFollowersCount(followers || 0);
+      } catch (followersError) {
+        console.error('Error fetching followers count:', followersError);
+      }
+      
+      // Get following count
+      try {
+        const { count: following, error: followingError } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', profileId);
+          
+        if (followingError) throw followingError;
+        
+        setFollowingCount(following || 0);
+      } catch (followingError) {
+        console.error('Error fetching following count:', followingError);
+      }
+      
+      // Check if current user is following this profile
+      if (currentUser?.id && profileId !== currentUser.id) {
         try {
-          const { count: followers, error: followersError } = await supabase
+          const { data: followCheck, error: followCheckError } = await supabase
             .from('follows')
-            .select('*', { count: 'exact', head: true })
+            .select('id')
+            .eq('follower_id', currentUser.id)
             .eq('following_id', profileId);
             
-          if (followersError) throw followersError;
+          if (followCheckError) throw followCheckError;
           
-          setFollowersCount(followers || 0);
-        } catch (followersError) {
-          console.error('Error fetching followers count:', followersError);
+          setIsFollowing((followCheck?.length || 0) > 0);
+        } catch (followCheckError) {
+          console.error('Error checking follow status:', followCheckError);
         }
-        
-        // Get following count
-        try {
-          const { count: following, error: followingError } = await supabase
-            .from('follows')
-            .select('*', { count: 'exact', head: true })
-            .eq('follower_id', profileId);
-            
-          if (followingError) throw followingError;
-          
-          setFollowingCount(following || 0);
-        } catch (followingError) {
-          console.error('Error fetching following count:', followingError);
-        }
-        
-        // Check if current user is following this profile
-        if (currentUser?.id && profileId !== currentUser.id) {
-          try {
-            const { data: followCheck, error: followCheckError } = await supabase
-              .from('follows')
-              .select('id')
-              .eq('follower_id', currentUser.id)
-              .eq('following_id', profileId);
-              
-            if (followCheckError) throw followCheckError;
-            
-            setIsFollowing((followCheck?.length || 0) > 0);
-          } catch (followCheckError) {
-            console.error('Error checking follow status:', followCheckError);
-          }
-        }
-        
-        setProfileData(profile);
-      } catch (error) {
-        console.error('Error fetching profile data:', error);
-        toast.error('Failed to load profile data');
-      } finally {
-        setLoading(false);
       }
-    };
-    
-    fetchProfile();
+      
+      setProfileData(profile);
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      toast.error('Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
   }, [profileId, currentUser?.id]);
   
   const handleFollow = async () => {
@@ -203,6 +205,11 @@ export default function Profile() {
     } finally {
       setFollowLoading(false);
     }
+  };
+
+  // Handle post creation success
+  const handlePostCreated = () => {
+    fetchProfileData(); // Refresh posts after creating a new one
   };
 
   if (loading) {
@@ -280,7 +287,7 @@ export default function Profile() {
             <div className="flex flex-col md:flex-row md:items-end justify-between">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold">@{profileData.username}</h1>
-                <p className="text-muted-foreground">{profileData.role.charAt(0).toUpperCase() + profileData.role.slice(1).replace('_', ' ')}</p>
+                <p className="text-muted-foreground">{profileData.role?.charAt(0).toUpperCase() + profileData.role?.slice(1).replace('_', ' ')}</p>
               </div>
               {!isOwnProfile && currentUser && (
                 <div className="mt-4 md:mt-0">
@@ -363,15 +370,20 @@ export default function Profile() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="posts" className="pt-6">
+                {/* Show post form only on user's own profile */}
+                {isOwnProfile && (
+                  <PostForm onPostCreated={handlePostCreated} profileWall={true} />
+                )}
+                
                 {posts.length > 0 ? (
                   <PostsList posts={posts} />
                 ) : (
                   <div className="text-center py-12 bg-card rounded-lg border shadow-sm">
                     <h3 className="text-lg font-medium">No posts yet</h3>
                     <p className="text-muted-foreground mt-2">When {isOwnProfile ? 'you create' : 'this user creates'} posts, they'll appear here.</p>
-                    {isOwnProfile && (
-                      <Button variant="default" className="mt-4" asChild>
-                        <Link to="/">Create a post</Link>
+                    {isOwnProfile && !posts.length && (
+                      <Button variant="default" className="mt-4">
+                        Create your first post
                       </Button>
                     )}
                   </div>

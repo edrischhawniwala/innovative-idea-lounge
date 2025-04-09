@@ -6,9 +6,72 @@ import PostsList from "@/components/feed/PostsList";
 import { getEnrichedPosts } from "@/data/mockData";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Post } from "@/types";
+import { format } from "date-fns";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function Index() {
-  const posts = getEnrichedPosts();
+  const [posts, setPosts] = useState<Post[]>(getEnrichedPosts());
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  // Function to fetch posts
+  const fetchPosts = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions
+        .invoke('get_posts_with_user', {
+          body: { user_id_param: user.id }
+        });
+        
+      if (error) throw new Error(error.message);
+      
+      if (data && Array.isArray(data)) {
+        // Format posts to match our Post type
+        const formattedPosts = data.map((post: any) => ({
+          id: post.id,
+          userId: post.user_id,
+          user: {
+            id: post.profile_id,
+            name: post.username,
+            username: post.username,
+            avatar: post.avatar,
+            role: post.role as "member" | "service_user" | "service_provider" | "admin",
+            joinDate: format(new Date(post.created_at), "yyyy-MM-dd")
+          },
+          content: post.content,
+          images: post.images || [],
+          videos: post.videos || [],
+          createdAt: post.created_at,
+          likes: post.likes_count || 0,
+          comments: post.comments_count || 0,
+          tags: post.tags || []
+        }));
+        
+        setPosts(formattedPosts);
+      }
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+      toast.error("Failed to load posts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle post creation success
+  const handlePostCreated = () => {
+    fetchPosts(); // Refresh posts after creating a new one
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -19,7 +82,7 @@ export default function Index() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Main Content */}
             <div className="lg:col-span-8 space-y-4">
-              <PostForm />
+              <PostForm onPostCreated={handlePostCreated} />
               <PostsList posts={posts} />
             </div>
             
@@ -75,6 +138,3 @@ export default function Index() {
     </div>
   );
 }
-
-// Import the Button component directly in the scope for JSX usage
-import { Button } from "@/components/ui/button";
