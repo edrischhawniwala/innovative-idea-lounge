@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Calendar, MapPin, Link as LinkIcon, Edit, UserPlus, Check, Loader2 } from "lucide-react";
@@ -105,112 +104,51 @@ export default function Profile() {
           }
         } catch (edgeFunctionError) {
           console.error("Error fetching posts:", edgeFunctionError);
-          
-          // Fallback to direct REST API queries if Edge Function fails
-          try {
-            const { data: fallbackPosts, error: fallbackError } = await fetch(
-              `${supabase.supabaseUrl}/rest/v1/posts?user_id=eq.${profileId}&order=created_at.desc`,
-              {
-                headers: {
-                  'apikey': supabase.supabaseKey,
-                  'Authorization': `Bearer ${supabase.supabaseKey}`,
-                  'Content-Type': 'application/json'
-                }
-              }
-            ).then(res => res.json());
-              
-            if (fallbackError) throw fallbackError;
+          toast.error("Failed to load posts");
+        }
+        
+        // Get followers count
+        try {
+          const { data: followers, error: followersError } = await supabase
+            .from('follows')
+            .select('id')
+            .eq('following_id', profileId);
             
-            // Fetch user data for each post
-            if (fallbackPosts && Array.isArray(fallbackPosts)) {
-              const userData = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', profileId)
-                .single();
-                
-              if (userData.error) throw userData.error;
-              
-              const userRoleTyped = userData.data.role as "member" | "service_user" | "service_provider" | "admin";
-              
-              const formattedPosts = fallbackPosts.map((post: any) => ({
-                id: post.id,
-                userId: post.user_id,
-                user: {
-                  id: userData.data.id,
-                  name: userData.data.username,
-                  username: userData.data.username,
-                  avatar: userData.data.avatar,
-                  role: userRoleTyped,
-                  joinDate: format(new Date(userData.data.created_at), "yyyy-MM-dd")
-                },
-                content: post.content,
-                images: post.images || [],
-                videos: post.videos || [],
-                createdAt: post.created_at,
-                likes: post.likes_count,
-                comments: post.comments_count,
-                tags: post.tags || []
-              }));
-              
-              setPosts(formattedPosts);
-            }
-          } catch (restApiError) {
-            console.error("Fallback fetch also failed:", restApiError);
-            toast.error("Failed to load posts");
-          }
+          if (followersError) throw followersError;
+          
+          setFollowersCount(followers?.length || 0);
+        } catch (followersError) {
+          console.error('Error fetching followers count:', followersError);
         }
         
-        // Get followers count using REST API
+        // Get following count
         try {
-          const followersResponse = await fetch(
-            `${supabase.supabaseUrl}/rest/v1/follows?following_id=eq.${profileId}&select=id`,
-            {
-              headers: {
-                'apikey': supabase.supabaseKey,
-                'Authorization': `Bearer ${supabase.supabaseKey}`
-              }
-            }
-          );
-          const followersData = await followersResponse.json();
-          setFollowersCount(followersData.length || 0);
-        } catch (error) {
-          console.error('Error fetching followers count:', error);
-        }
-        
-        // Get following count using REST API
-        try {
-          const followingResponse = await fetch(
-            `${supabase.supabaseUrl}/rest/v1/follows?follower_id=eq.${profileId}&select=id`,
-            {
-              headers: {
-                'apikey': supabase.supabaseKey,
-                'Authorization': `Bearer ${supabase.supabaseKey}`
-              }
-            }
-          );
-          const followingData = await followingResponse.json();
-          setFollowingCount(followingData.length || 0);
-        } catch (error) {
-          console.error('Error fetching following count:', error);
+          const { data: following, error: followingError } = await supabase
+            .from('follows')
+            .select('id')
+            .eq('follower_id', profileId);
+            
+          if (followingError) throw followingError;
+          
+          setFollowingCount(following?.length || 0);
+        } catch (followingError) {
+          console.error('Error fetching following count:', followingError);
         }
         
         // Check if current user is following this profile
         if (currentUser?.id && profileId !== currentUser.id) {
           try {
-            const followCheckResponse = await fetch(
-              `${supabase.supabaseUrl}/rest/v1/follows?follower_id=eq.${currentUser.id}&following_id=eq.${profileId}`,
-              {
-                headers: {
-                  'apikey': supabase.supabaseKey,
-                  'Authorization': `Bearer ${supabase.supabaseKey}`
-                }
-              }
-            );
-            const followCheckData = await followCheckResponse.json();
-            setIsFollowing(followCheckData.length > 0);
-          } catch (error) {
-            console.error('Error checking follow status:', error);
+            const { data: followCheck, error: followCheckError } = await supabase
+              .from('follows')
+              .select('id')
+              .eq('follower_id', currentUser.id)
+              .eq('following_id', profileId);
+              
+            if (followCheckError) throw followCheckError;
+            
+            setIsFollowing((followCheck?.length || 0) > 0);
+          } catch (followCheckError) {
+            console.error('Error checking follow status:', followCheckError);
           }
         }
         
@@ -232,40 +170,28 @@ export default function Profile() {
     setFollowLoading(true);
     try {
       if (isFollowing) {
-        // Unfollow - using REST API
-        const deleteResponse = await fetch(
-          `${supabase.supabaseUrl}/rest/v1/follows?follower_id=eq.${currentUser.id}&following_id=eq.${profileId}`,
-          {
-            method: 'DELETE',
-            headers: {
-              'apikey': supabase.supabaseKey,
-              'Authorization': `Bearer ${supabase.supabaseKey}`
-            }
-          }
-        );
+        // Unfollow
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUser.id)
+          .eq('following_id', profileId);
           
-        if (!deleteResponse.ok) throw new Error('Failed to unfollow');
+        if (error) throw error;
+        
         setFollowersCount(prev => prev - 1);
         toast.success('Unfollowed successfully');
       } else {
-        // Follow - using REST API
-        const insertResponse = await fetch(
-          `${supabase.supabaseUrl}/rest/v1/follows`,
-          {
-            method: 'POST',
-            headers: {
-              'apikey': supabase.supabaseKey,
-              'Authorization': `Bearer ${supabase.supabaseKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              follower_id: currentUser.id,
-              following_id: profileId
-            })
-          }
-        );
+        // Follow
+        const { error } = await supabase
+          .from('follows')
+          .insert({
+            follower_id: currentUser.id,
+            following_id: profileId
+          });
           
-        if (!insertResponse.ok) throw new Error('Failed to follow');
+        if (error) throw error;
+        
         setFollowersCount(prev => prev + 1);
         toast.success('Following successfully');
       }
