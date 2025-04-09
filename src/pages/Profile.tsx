@@ -24,6 +24,22 @@ type Profile = {
   created_at: string;
 };
 
+type PostWithProfile = {
+  id: string;
+  user_id: string;
+  content: string;
+  images: string[] | null;
+  videos: string[] | null;
+  created_at: string;
+  likes_count: number;
+  comments_count: number;
+  tags: string[] | null;
+  profile_id: string;
+  username: string;
+  avatar: string;
+  role: string;
+};
+
 export default function Profile() {
   const { userId } = useParams();
   const { user: currentUser } = useAuth();
@@ -54,13 +70,43 @@ export default function Profile() {
         
         if (profileError) throw profileError;
         
-        // Fetch posts by this user
-        const { data: userPosts, error: postsError } = await supabase
-          .rpc('get_posts_with_user', { user_id_param: profileId });
-        
-        if (postsError) {
-          console.error("Error fetching posts:", postsError);
-          // Fallback to regular query if RPC is not available
+        // Fetch posts by this user - use Edge Function
+        try {
+          const { data: userPosts, error: postsError } = await supabase.functions
+            .invoke('get_posts_with_user', {
+              body: { user_id_param: profileId }
+            });
+            
+          if (postsError) throw postsError;
+          
+          if (userPosts && Array.isArray(userPosts)) {
+            // Format posts to match our Post type
+            const formattedPosts = userPosts.map((post: PostWithProfile) => ({
+              id: post.id,
+              userId: post.user_id,
+              user: {
+                id: post.profile_id,
+                name: post.username,
+                username: post.username,
+                avatar: post.avatar,
+                role: post.role as "member" | "service_user" | "service_provider" | "admin",
+                joinDate: format(new Date(post.created_at), "yyyy-MM-dd")
+              },
+              content: post.content,
+              images: post.images || [],
+              videos: post.videos || [],
+              createdAt: post.created_at,
+              likes: post.likes_count,
+              comments: post.comments_count,
+              tags: post.tags || []
+            }));
+            
+            setPosts(formattedPosts);
+          }
+        } catch (edgeFunctionError) {
+          console.error("Error fetching posts:", edgeFunctionError);
+          
+          // Fallback to direct queries if Edge Function fails
           const { data: fallbackPosts, error: fallbackError } = await supabase
             .from('posts')
             .select('*')
@@ -79,6 +125,8 @@ export default function Profile() {
               
             if (userData.error) throw userData.error;
             
+            const userRoleTyped = userData.data.role as "member" | "service_user" | "service_provider" | "admin";
+            
             const formattedPosts = fallbackPosts.map(post => ({
               id: post.id,
               userId: post.user_id,
@@ -87,43 +135,20 @@ export default function Profile() {
                 name: userData.data.username,
                 username: userData.data.username,
                 avatar: userData.data.avatar,
-                role: userData.data.role || 'member',
+                role: userRoleTyped,
                 joinDate: format(new Date(userData.data.created_at), "yyyy-MM-dd")
               },
               content: post.content,
-              images: post.images,
-              videos: post.videos,
+              images: post.images || [],
+              videos: post.videos || [],
               createdAt: post.created_at,
               likes: post.likes_count,
               comments: post.comments_count,
-              tags: post.tags
+              tags: post.tags || []
             }));
             
             setPosts(formattedPosts);
           }
-        } else if (userPosts) {
-          // Format posts to match our Post type if RPC was successful
-          const formattedPosts = userPosts.map(post => ({
-            id: post.id,
-            userId: post.user_id,
-            user: {
-              id: post.profile_id,
-              name: post.username,
-              username: post.username,
-              avatar: post.avatar,
-              role: post.role || 'member',
-              joinDate: format(new Date(post.created_at), "yyyy-MM-dd")
-            },
-            content: post.content,
-            images: post.images,
-            videos: post.videos,
-            createdAt: post.created_at,
-            likes: post.likes_count,
-            comments: post.comments_count,
-            tags: post.tags
-          }));
-          
-          setPosts(formattedPosts);
         }
         
         // Get followers count using direct count query
