@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { User, Post } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import Avatar from "@/components/common/Avatar";
 
 type Profile = {
   id: string;
@@ -55,17 +56,77 @@ export default function Profile() {
         
         // Fetch posts by this user
         const { data: userPosts, error: postsError } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            user:profiles!posts_user_id_fkey(id, username, avatar)
-          `)
-          .eq('user_id', profileId)
-          .order('created_at', { ascending: false });
+          .rpc('get_posts_with_user', { user_id_param: profileId });
         
-        if (postsError) throw postsError;
+        if (postsError) {
+          console.error("Error fetching posts:", postsError);
+          // Fallback to regular query if RPC is not available
+          const { data: fallbackPosts, error: fallbackError } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('user_id', profileId)
+            .order('created_at', { ascending: false });
+            
+          if (fallbackError) throw fallbackError;
+          
+          // Fetch user data for each post
+          if (fallbackPosts) {
+            const userData = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', profileId)
+              .single();
+              
+            if (userData.error) throw userData.error;
+            
+            const formattedPosts = fallbackPosts.map(post => ({
+              id: post.id,
+              userId: post.user_id,
+              user: {
+                id: userData.data.id,
+                name: userData.data.username,
+                username: userData.data.username,
+                avatar: userData.data.avatar,
+                role: userData.data.role || 'member',
+                joinDate: format(new Date(userData.data.created_at), "yyyy-MM-dd")
+              },
+              content: post.content,
+              images: post.images,
+              videos: post.videos,
+              createdAt: post.created_at,
+              likes: post.likes_count,
+              comments: post.comments_count,
+              tags: post.tags
+            }));
+            
+            setPosts(formattedPosts);
+          }
+        } else if (userPosts) {
+          // Format posts to match our Post type if RPC was successful
+          const formattedPosts = userPosts.map(post => ({
+            id: post.id,
+            userId: post.user_id,
+            user: {
+              id: post.profile_id,
+              name: post.username,
+              username: post.username,
+              avatar: post.avatar,
+              role: post.role || 'member',
+              joinDate: format(new Date(post.created_at), "yyyy-MM-dd")
+            },
+            content: post.content,
+            images: post.images,
+            videos: post.videos,
+            createdAt: post.created_at,
+            likes: post.likes_count,
+            comments: post.comments_count,
+            tags: post.tags
+          }));
+          
+          setPosts(formattedPosts);
+        }
         
-        // Get followers count
+        // Get followers count using direct count query
         const { count: followers, error: followersError } = await supabase
           .from('follows')
           .select('*', { count: 'exact', head: true })
@@ -73,7 +134,7 @@ export default function Profile() {
         
         if (followersError) throw followersError;
         
-        // Get following count
+        // Get following count using direct count query
         const { count: following, error: followingError } = await supabase
           .from('follows')
           .select('*', { count: 'exact', head: true })
@@ -94,28 +155,7 @@ export default function Profile() {
           setIsFollowing(!!followCheck);
         }
         
-        // Format posts to match our Post type
-        const formattedPosts = userPosts.map(post => ({
-          id: post.id,
-          userId: post.user_id,
-          user: post.user ? {
-            id: post.user.id,
-            name: post.user.username, // Using username as name
-            username: post.user.username,
-            avatar: post.user.avatar,
-            role: 'member'
-          } : undefined,
-          content: post.content,
-          images: post.images,
-          videos: post.videos,
-          createdAt: post.created_at,
-          likes: post.likes_count,
-          comments: post.comments_count,
-          tags: post.tags
-        }));
-        
         setProfileData(profile);
-        setPosts(formattedPosts);
         setFollowersCount(followers || 0);
         setFollowingCount(following || 0);
       } catch (error) {
