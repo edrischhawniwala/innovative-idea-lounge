@@ -4,12 +4,14 @@ import { Link } from "react-router-dom";
 import { Bell, MessageCircle, Search, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Avatar from "@/components/common/Avatar";
-import { currentUser, mockNotifications } from "@/data/mockData";
+import UserMenu from "@/components/auth/UserMenu";
+import { useAuth } from "@/context/AuthContext";
+import { mockNotifications } from "@/data/mockData";
 
 export default function Navbar() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const { user } = useAuth();
   
   const unreadNotifications = mockNotifications.filter(n => !n.isRead).length;
 
@@ -45,9 +47,13 @@ export default function Navbar() {
                   )}
                 </Link>
               </Button>
-              <Link to="/profile">
-                <Avatar user={currentUser} size="sm" />
-              </Link>
+              {user ? (
+                <UserMenu />
+              ) : (
+                <Button variant="outline" asChild>
+                  <Link to="/auth">Sign In</Link>
+                </Button>
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2">
@@ -92,10 +98,23 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
-            <Link to="/profile" className="flex items-center gap-2 p-2 hover:bg-accent rounded-md" onClick={() => setShowMobileMenu(false)}>
-              <Avatar user={currentUser} size="xs" />
-              <span>Profile</span>
-            </Link>
+            {user ? (
+              <>
+                <Link to="/profile" className="flex items-center gap-2 p-2 hover:bg-accent rounded-md" onClick={() => setShowMobileMenu(false)}>
+                  <span>Profile</span>
+                </Link>
+                <Button variant="outline" onClick={() => {
+                  setShowMobileMenu(false);
+                  // Use signOut function here
+                }}>
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" asChild onClick={() => setShowMobileMenu(false)}>
+                <Link to="/auth">Sign In</Link>
+              </Button>
+            )}
           </div>
         </div>
       )}
