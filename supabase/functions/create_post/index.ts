@@ -35,57 +35,40 @@ serve(async (req) => {
       )
     }
 
-    // Check if the posts table exists
-    const { data: tableExists, error: checkTableError } = await supabase
-      .rpc('check_table_exists', { table_name: 'posts' })
-    
-    if (checkTableError) {
+    // Create the post directly without checking for table existence
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        user_id,
+        content,
+        images: images || null,
+        videos: videos || null,
+        tags: tags || null
+      })
+      .select('*')
+      .single()
+      
+    if (error) {
+      console.error('Error creating post:', error)
       return new Response(
-        JSON.stringify({ error: 'Error checking table existence', details: checkTableError.message }),
+        JSON.stringify({ error: 'Error creating post', details: error.message }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
       )
     }
-
-    // Create the post
-    let response
     
-    if (tableExists) {
-      // Insert into the real posts table
-      const { data, error } = await supabase
-        .from('posts')
-        .insert({
-          user_id,
-          content,
-          images: images || null,
-          videos: videos || null,
-          tags: tags || null
-        })
-        .select('*')
-        .single()
-        
-      if (error) {
-        throw new Error(`Error creating post: ${error.message}`)
-      }
-      
-      response = data
-    } else {
-      // Return a mock response if table doesn't exist
-      response = {
-        id: crypto.randomUUID(),
-        user_id,
-        content,
-        images: images || null,
-        videos: videos || null,
-        tags: tags || null,
-        created_at: new Date().toISOString(),
-        likes_count: 0,
-        comments_count: 0
-      }
+    if (!data) {
+      return new Response(
+        JSON.stringify({ error: 'No data returned after post creation' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        }
+      )
     }
-
+      
     // Get the profile to combine with the post
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -94,8 +77,9 @@ serve(async (req) => {
       .single()
       
     if (profileError) {
+      console.error('Error fetching profile:', profileError)
       return new Response(
-        JSON.stringify({ error: 'Profile not found' }),
+        JSON.stringify({ error: 'Profile not found', details: profileError.message }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 404
@@ -105,7 +89,7 @@ serve(async (req) => {
 
     // Combine post with profile data
     const enrichedPost = {
-      ...response,
+      ...data,
       profile_id: profile.id,
       username: profile.username,
       avatar: profile.avatar,
