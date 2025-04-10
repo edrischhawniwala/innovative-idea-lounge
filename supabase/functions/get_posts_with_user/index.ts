@@ -23,7 +23,7 @@ serve(async (req) => {
     const supabase = createClient(url, key)
 
     // Parse the request body
-    let user_id_param
+    let user_id_param = null
     
     try {
       const body = await req.json()
@@ -33,84 +33,68 @@ serve(async (req) => {
       console.log("No request body or invalid JSON. Will fetch all posts.")
     }
 
-    // First check if the posts table exists
-    const { data: tableExists, error: checkTableError } = await supabase
-      .rpc('check_table_exists', { table_name: 'posts' })
-
-    if (checkTableError) {
+    let postsQuery = supabase
+      .from('posts')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    // If user_id_param is provided, filter posts for that user
+    if (user_id_param) {
+      postsQuery = postsQuery.eq('user_id', user_id_param)
+    }
+    
+    // Get posts
+    const { data: posts, error: postsError } = await postsQuery
+    
+    if (postsError) {
+      console.error("Error fetching posts:", postsError)
       return new Response(
-        JSON.stringify({ error: 'Error checking table existence', details: checkTableError.message }),
+        JSON.stringify({ error: 'Error fetching posts', details: postsError.message }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500
         }
       )
     }
-
-    // If table doesn't exist, return an appropriate response
-    if (!tableExists) {
-      console.log("Posts table doesn't exist")
+    
+    if (!posts || posts.length === 0) {
+      console.log("No posts found")
       return new Response(
-        JSON.stringify({ error: 'Posts table does not exist' }),
+        JSON.stringify([]),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404
+          status: 200
         }
       )
-    }
-
-    let apiEndpoint = `${url}/rest/v1/posts?`
-    
-    // If user_id_param is provided, filter posts for that user
-    if (user_id_param) {
-      apiEndpoint += `user_id=eq.${user_id_param}&`
-    }
-    
-    // Add sorting by creation date
-    apiEndpoint += `order=created_at.desc`
-    
-    // Get posts using REST API directly
-    const response = await fetch(
-      apiEndpoint,
-      {
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`
-        }
-      }
-    )
-    
-    const posts = await response.json()
-    
-    if (!Array.isArray(posts)) {
-      throw new Error('Invalid response format')
     }
     
     // Get all the unique user IDs from the posts
     const userIds = [...new Set(posts.map(post => post.user_id))]
     
     // Fetch profiles for all these users
-    const profilesResponse = await fetch(
-      `${url}/rest/v1/profiles?id=in.(${userIds.join(',')})`,
-      {
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds)
+    
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError)
+      return new Response(
+        JSON.stringify({ error: 'Error fetching profiles', details: profilesError.message }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
         }
-      }
-    )
-    
-    const profiles = await profilesResponse.json()
-    
-    if (!Array.isArray(profiles)) {
-      throw new Error('Invalid profiles response format')
+      )
     }
     
     // Create a map of user_id to profile
     const profileMap = {}
-    profiles.forEach(profile => {
-      profileMap[profile.id] = profile
-    })
+    if (profiles) {
+      profiles.forEach(profile => {
+        profileMap[profile.id] = profile
+      })
+    }
     
     // Combine post data with profile data
     const transformedData = posts.map(post => {
