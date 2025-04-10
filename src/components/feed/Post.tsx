@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle, Heart, Share2, BarChart2, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageCircle, Heart, Share2, BarChart2, ChevronDown, ChevronUp, MoreVertical, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -10,15 +10,33 @@ import CommentsList from "./CommentsList";
 import { Post as PostType } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { getEnrichedComments } from "@/data/mockData";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 
 interface PostProps {
   post: PostType;
+  onPostDeleted?: () => void;
 }
 
-export default function Post({ post }: PostProps) {
+export default function Post({ post, onPostDeleted }: PostProps) {
   const [isLiked, setIsLiked] = useState(post.hasLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
+  const { user } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const handleLike = () => {
     if (isLiked) {
@@ -40,6 +58,36 @@ export default function Post({ post }: PostProps) {
   const hasVideo = post.videos && post.videos.length > 0;
   const hasImage = post.images && post.images.length > 0;
 
+  // Check if the current user is the post owner
+  const isOwnPost = user?.id === post.userId;
+  
+  // Handle post deletion
+  const handleDeletePost = async () => {
+    if (!isOwnPost) return;
+    
+    try {
+      setIsDeleting(true);
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id);
+        
+      if (error) throw error;
+      
+      toast.success("Post deleted successfully");
+      
+      // Refresh posts list if callback provided
+      if (onPostDeleted) {
+        onPostDeleted();
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast.error("Failed to delete post");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Card className="w-full mb-4 overflow-hidden">
       {/* Post Header */}
@@ -58,6 +106,28 @@ export default function Post({ post }: PostProps) {
               <span>{formattedDate}</span>
             </div>
           </div>
+          
+          {/* Post actions menu - only show for user's own posts */}
+          {isOwnPost && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">More options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive flex items-center cursor-pointer"
+                  onClick={handleDeletePost}
+                  disabled={isDeleting}
+                >
+                  <Trash className="mr-2 h-4 w-4" />
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Post Content */}

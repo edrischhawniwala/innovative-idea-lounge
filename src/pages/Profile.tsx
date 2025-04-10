@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Calendar, MapPin, Link as LinkIcon, Edit, UserPlus, Check, Loader2 } from "lucide-react";
+import { Calendar, Edit, UserPlus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -55,13 +55,11 @@ export default function Profile() {
   const profileId = userId || currentUser?.id;
   const isOwnProfile = currentUser?.id === profileId;
 
-  // Fetch profile data and posts
   const fetchProfileData = async () => {
     setLoading(true);
     try {
       if (!profileId) return;
       
-      // Fetch profile data
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -70,7 +68,6 @@ export default function Profile() {
       
       if (profileError) throw profileError;
       
-      // Fetch posts by this user using Edge Function
       try {
         const { data: userPosts, error: postsError } = await supabase.functions
           .invoke('get_posts_with_user', {
@@ -80,7 +77,6 @@ export default function Profile() {
         if (postsError) throw postsError;
         
         if (userPosts && Array.isArray(userPosts)) {
-          // Format posts to match our Post type
           const formattedPosts = userPosts.map((post: PostWithProfile) => ({
             id: post.id,
             userId: post.user_id,
@@ -108,7 +104,6 @@ export default function Profile() {
         toast.error("Failed to load posts");
       }
       
-      // Get followers count
       try {
         const { count: followers, error: followersError } = await supabase
           .from('follows')
@@ -122,7 +117,6 @@ export default function Profile() {
         console.error('Error fetching followers count:', followersError);
       }
       
-      // Get following count
       try {
         const { count: following, error: followingError } = await supabase
           .from('follows')
@@ -136,7 +130,6 @@ export default function Profile() {
         console.error('Error fetching following count:', followingError);
       }
       
-      // Check if current user is following this profile
       if (currentUser?.id && profileId !== currentUser.id) {
         try {
           const { data: followCheck, error: followCheckError } = await supabase
@@ -144,7 +137,7 @@ export default function Profile() {
             .select('id')
             .eq('follower_id', currentUser.id)
             .eq('following_id', profileId);
-            
+          
           if (followCheckError) throw followCheckError;
           
           setIsFollowing((followCheck?.length || 0) > 0);
@@ -172,7 +165,6 @@ export default function Profile() {
     setFollowLoading(true);
     try {
       if (isFollowing) {
-        // Unfollow
         const { error } = await supabase
           .from('follows')
           .delete()
@@ -184,7 +176,6 @@ export default function Profile() {
         setFollowersCount(prev => prev - 1);
         toast.success('Unfollowed successfully');
       } else {
-        // Follow
         const { error } = await supabase
           .from('follows')
           .insert({
@@ -206,9 +197,12 @@ export default function Profile() {
     }
   };
 
-  // Handle post creation success
   const handlePostCreated = () => {
-    fetchProfileData(); // Refresh posts after creating a new one
+    fetchProfileData();
+  };
+
+  const handlePostDeleted = () => {
+    fetchProfileData();
   };
 
   if (loading) {
@@ -253,7 +247,6 @@ export default function Profile() {
       <div className="flex">
         <Sidebar />
         <div className="flex-1 pb-16">
-          {/* Cover Image */}
           <div className="h-48 md:h-64 bg-gradient-to-r from-primary/80 to-accent relative">
             <div className="container max-w-screen-xl mx-auto px-4 h-full flex items-end">
               <div className="absolute -bottom-16 md:-bottom-20 left-4 md:left-8 lg:left-[calc(50%-24rem)] z-10">
@@ -281,7 +274,6 @@ export default function Profile() {
             </div>
           </div>
           
-          {/* Profile Info */}
           <div className="container max-w-screen-xl mx-auto px-4 pt-20 md:pt-24 pb-4">
             <div className="flex flex-col md:flex-row md:items-end justify-between">
               <div>
@@ -314,7 +306,6 @@ export default function Profile() {
               )}
             </div>
             
-            {/* Bio and Stats */}
             <div className="mt-4">
               {profileData.bio && (
                 <p className="text-foreground/90 whitespace-pre-line">{profileData.bio}</p>
@@ -340,7 +331,6 @@ export default function Profile() {
             
             <Separator className="my-6" />
             
-            {/* Tabs */}
             <Tabs defaultValue="posts" value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0">
                 <TabsTrigger 
@@ -369,7 +359,6 @@ export default function Profile() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="posts" className="pt-6">
-                {/* Show post form only on user's own profile */}
                 {isOwnProfile && (
                   <PostForm onPostCreated={handlePostCreated} profileWall={true} />
                 )}
@@ -379,7 +368,7 @@ export default function Profile() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : posts.length > 0 ? (
-                  <PostsList posts={posts} />
+                  <PostsList posts={posts} onPostDeleted={handlePostDeleted} />
                 ) : (
                   <div className="text-center py-12 bg-card rounded-lg border shadow-sm">
                     <h3 className="text-lg font-medium">No posts yet</h3>

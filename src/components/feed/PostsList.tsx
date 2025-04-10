@@ -15,9 +15,10 @@ import { useState } from "react";
 interface PostsListProps {
   posts: Post[];
   postsPerPage?: number;
+  onPostDeleted?: () => void;
 }
 
-export default function PostsList({ posts, postsPerPage = 5 }: PostsListProps) {
+export default function PostsList({ posts, postsPerPage = 5, onPostDeleted }: PostsListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   
   // Calculate pagination
@@ -35,7 +36,7 @@ export default function PostsList({ posts, postsPerPage = 5 }: PostsListProps) {
   return (
     <div className="space-y-4">
       {currentPosts.map((post) => (
-        <PostComponent key={post.id} post={post} />
+        <PostComponent key={post.id} post={post} onPostDeleted={onPostDeleted} />
       ))}
       
       {/* Show pagination only if there are multiple pages */}

@@ -69,6 +69,11 @@ export default function Index() {
     fetchPosts(); // Refresh posts after creating a new one
   };
 
+  // Handle post deletion
+  const handlePostDeleted = () => {
+    fetchPosts(); // Refresh posts after deleting one
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -85,7 +90,7 @@ export default function Index() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : posts.length > 0 ? (
-                <PostsList posts={posts} />
+                <PostsList posts={posts} onPostDeleted={handlePostDeleted} />
               ) : (
                 <div className="text-center py-12 bg-card rounded-lg border shadow-sm">
                   <h3 className="text-lg font-medium">No posts yet</h3>
