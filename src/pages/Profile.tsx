@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Calendar, MapPin, Link as LinkIcon, Edit, UserPlus, Check, Loader2 } from "lucide-react";
@@ -246,7 +245,7 @@ export default function Profile() {
     );
   }
 
-  const joinDate = format(new Date(profileData.created_at), "MMMM yyyy");
+  const joinDate = profileData ? format(new Date(profileData.created_at), "MMMM yyyy") : '';
 
   return (
     <div className="min-h-screen bg-background">
@@ -375,7 +374,11 @@ export default function Profile() {
                   <PostForm onPostCreated={handlePostCreated} profileWall={true} />
                 )}
                 
-                {posts.length > 0 ? (
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : posts.length > 0 ? (
                   <PostsList posts={posts} />
                 ) : (
                   <div className="text-center py-12 bg-card rounded-lg border shadow-sm">

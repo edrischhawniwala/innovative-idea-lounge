@@ -23,16 +23,14 @@ serve(async (req) => {
     const supabase = createClient(url, key)
 
     // Parse the request body
-    const { user_id_param } = await req.json()
-
-    if (!user_id_param) {
-      return new Response(
-        JSON.stringify({ error: 'Missing user_id_param' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400 
-        }
-      )
+    let user_id_param
+    
+    try {
+      const body = await req.json()
+      user_id_param = body.user_id_param
+    } catch (e) {
+      // If no body or invalid JSON, proceed without user_id_param
+      console.log("No request body or invalid JSON. Will fetch all posts.")
     }
 
     // First check if the posts table exists
@@ -51,70 +49,29 @@ serve(async (req) => {
 
     // If table doesn't exist, return an appropriate response
     if (!tableExists) {
-      // Create sample post data for demonstration
-      const samplePosts = [
-        {
-          id: crypto.randomUUID(),
-          user_id: user_id_param,
-          content: "This is a sample post for demonstration purposes. In a real app, this data would come from the database.",
-          likes_count: Math.floor(Math.random() * 25),
-          comments_count: Math.floor(Math.random() * 10),
-          created_at: new Date().toISOString(),
-          images: ["https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"],
-          videos: null,
-          tags: ["demo", "sample"]
-        },
-        {
-          id: crypto.randomUUID(),
-          user_id: user_id_param,
-          content: "Another sample post. This one doesn't have any images attached to it.",
-          likes_count: Math.floor(Math.random() * 15),
-          comments_count: Math.floor(Math.random() * 5),
-          created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          images: null,
-          videos: null,
-          tags: ["text", "noimage"]
-        }
-      ];
-
-      // Get the profile to combine with sample posts
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user_id_param)
-        .single();
-
-      if (profileError) {
-        return new Response(
-          JSON.stringify({ error: 'Profile not found' }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 404
-          }
-        );
-      }
-
-      // Combine post data with profile data
-      const transformedData = samplePosts.map(post => ({
-        ...post,
-        profile_id: profile.id,
-        username: profile.username,
-        avatar: profile.avatar,
-        role: profile.role
-      }));
-
+      console.log("Posts table doesn't exist")
       return new Response(
-        JSON.stringify(transformedData),
+        JSON.stringify({ error: 'Posts table does not exist' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
+          status: 404
         }
-      );
+      )
     }
 
-    // Get posts with joined profile data using REST API directly
+    let apiEndpoint = `${url}/rest/v1/posts?`
+    
+    // If user_id_param is provided, filter posts for that user
+    if (user_id_param) {
+      apiEndpoint += `user_id=eq.${user_id_param}&`
+    }
+    
+    // Add sorting by creation date
+    apiEndpoint += `order=created_at.desc`
+    
+    // Get posts using REST API directly
     const response = await fetch(
-      `${url}/rest/v1/posts?user_id=eq.${user_id_param}&order=created_at.desc`,
+      apiEndpoint,
       {
         headers: {
           'apikey': key,
@@ -129,9 +86,12 @@ serve(async (req) => {
       throw new Error('Invalid response format')
     }
     
-    // Fetch profile data for each post
-    const profileResponse = await fetch(
-      `${url}/rest/v1/profiles?id=eq.${user_id_param}`,
+    // Get all the unique user IDs from the posts
+    const userIds = [...new Set(posts.map(post => post.user_id))]
+    
+    // Fetch profiles for all these users
+    const profilesResponse = await fetch(
+      `${url}/rest/v1/profiles?id=in.(${userIds.join(',')})`,
       {
         headers: {
           'apikey': key,
@@ -140,23 +100,32 @@ serve(async (req) => {
       }
     )
     
-    const profiles = await profileResponse.json()
+    const profiles = await profilesResponse.json()
     
-    if (!Array.isArray(profiles) || profiles.length === 0) {
-      throw new Error('Profile not found')
+    if (!Array.isArray(profiles)) {
+      throw new Error('Invalid profiles response format')
     }
     
-    const profile = profiles[0]
+    // Create a map of user_id to profile
+    const profileMap = {}
+    profiles.forEach(profile => {
+      profileMap[profile.id] = profile
+    })
     
     // Combine post data with profile data
-    const transformedData = posts.map(post => ({
-      ...post,
-      profile_id: profile.id,
-      username: profile.username,
-      avatar: profile.avatar,
-      role: profile.role
-    }))
+    const transformedData = posts.map(post => {
+      const profile = profileMap[post.user_id]
+      return {
+        ...post,
+        profile_id: profile?.id || post.user_id,
+        username: profile?.username || 'unknown',
+        avatar: profile?.avatar || null,
+        role: profile?.role || 'member'
+      }
+    })
 
+    console.log(`Returning ${transformedData.length} posts`)
+    
     return new Response(
       JSON.stringify(transformedData),
       { 

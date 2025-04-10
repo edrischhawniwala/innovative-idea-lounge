@@ -3,9 +3,8 @@ import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import PostForm from "@/components/feed/PostForm";
 import PostsList from "@/components/feed/PostsList";
-import { getEnrichedPosts } from "@/data/mockData";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, Users } from "lucide-react";
+import { TrendingUp, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,8 +14,8 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 export default function Index() {
-  const [posts, setPosts] = useState<Post[]>(getEnrichedPosts());
-  const [loading, setLoading] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -25,14 +24,11 @@ export default function Index() {
 
   // Function to fetch posts
   const fetchPosts = async () => {
-    if (!user) return;
-    
     setLoading(true);
     try {
+      // Use edge function to get posts with user profiles
       const { data, error } = await supabase.functions
-        .invoke('get_posts_with_user', {
-          body: { user_id_param: user.id }
-        });
+        .invoke('get_posts_with_user');
         
       if (error) throw new Error(error.message);
       
@@ -83,7 +79,19 @@ export default function Index() {
             {/* Main Content */}
             <div className="lg:col-span-8 space-y-4">
               <PostForm onPostCreated={handlePostCreated} />
-              <PostsList posts={posts} />
+              
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : posts.length > 0 ? (
+                <PostsList posts={posts} />
+              ) : (
+                <div className="text-center py-12 bg-card rounded-lg border shadow-sm">
+                  <h3 className="text-lg font-medium">No posts yet</h3>
+                  <p className="text-muted-foreground mt-2">Be the first to share something!</p>
+                </div>
+              )}
             </div>
             
             {/* Right Sidebar */}
