@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { User } from "@/types";
 
 interface PostFormProps {
   onPostCreated?: () => void;
@@ -27,6 +28,18 @@ export default function PostForm({ onPostCreated, profileWall }: PostFormProps) 
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Create a simplified user object compatible with our Avatar component
+  const getSimplifiedUser = () => {
+    if (!user) return currentUser;
+    
+    return {
+      id: user.id,
+      username: user.user_metadata?.username || "user",
+      avatar: user.user_metadata?.avatar || null,
+      role: (user.user_metadata?.role || "member") as User["role"] 
+    };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,15 +165,17 @@ export default function PostForm({ onPostCreated, profileWall }: PostFormProps) 
     videoInputRef.current?.click();
   };
 
+  const simplifiedUser = getSimplifiedUser();
+
   return (
     <Card className={`p-4 mb-4 ${profileWall ? 'mt-6' : ''}`}>
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3">
-          <Avatar user={user || currentUser} size="md" />
+          <Avatar user={simplifiedUser} size="md" />
           <div className="flex-1">
             <Textarea
               placeholder={profileWall 
-                ? `Share your thoughts on ${user?.name || 'your'} wall...` 
+                ? `Share your thoughts on ${simplifiedUser.username}'s wall...` 
                 : "Share your trading insights..."
               }
               value={postText}
